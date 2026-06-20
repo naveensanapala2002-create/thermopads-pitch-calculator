@@ -1,0 +1,227 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Thermopads Coiling Pitch Calculator FINAL V5</title>
+<style>
+body{margin:0;background:#eef2f7;font-family:Segoe UI,Arial,sans-serif}
+.header{background:#0b3d91;color:#fff;padding:18px 25px;display:flex;justify-content:space-between;align-items:center}
+.header h1{margin:0;font-size:28px}
+.container{padding:20px}
+.card{background:#fff;border-radius:10px;padding:18px;box-shadow:0 2px 8px rgba(0,0,0,.1);margin-bottom:18px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:15px}
+label{font-weight:600}
+
+input{
+ width:100%;
+ padding:10px;
+ border:2px solid #4a5568;
+ border-radius:6px;
+ font-size:15px;
+ font-weight:600;
+ box-sizing:border-box;
+}
+input:focus{
+ border:3px solid #0b3d91;
+ box-shadow:0 0 8px rgba(11,61,145,.4);
+ outline:none;
+}
+
+.locked{background:#e9ecef}
+
+.result-box{
+ width:100%;
+ padding:10px;
+ border:2px solid #4a5568;
+ border-radius:6px;
+ font-size:15px;
+ font-weight:700;
+ text-align:center;
+ background:#d1e7dd;
+ color:#0f5132;
+ box-sizing:border-box;
+}
+
+table{width:100%;border-collapse:collapse}
+th{background:#0b3d91;color:white}
+th,td{border:1px solid #d5dbe3;padding:8px;text-align:center}
+tr:nth-child(even){background:#f8fafc}
+
+.btn{border:none;padding:12px 18px;border-radius:8px;color:white;font-weight:bold;cursor:pointer;margin:4px}
+.green{background:#198754}
+.blue{background:#0d6efd}
+.orange{background:#fd7e14}
+.red{background:#dc3545}
+
+.footer{text-align:center;padding:15px;color:#666}
+
+#modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5)}
+.modalbox{background:white;width:320px;margin:120px auto;padding:20px;border-radius:10px}
+</style>
+</head>
+<body>
+
+<div class="header">
+<h1>THERMOPADS COILING PITCH CALCULATOR</h1>
+<button class="btn blue" onclick="showAdmin()">⚙ Admin</button>
+</div>
+
+<div class="container">
+
+<div class="card">
+<h3>Global Parameters</h3>
+<div class="grid">
+<div>
+<label>Yarn / Bundle Diameter (mm)</label>
+<input id="yarn" value="0.714" readonly class="locked">
+</div>
+
+<div>
+<label>Actual 1 Meter Resistance (Ω/m)</label>
+<input id="actual" type="number" step="any">
+</div>
+
+<div>
+<label>Heating Wire Diameter (mm)</label>
+<input id="wire" type="number" step="any">
+</div>
+</div>
+</div>
+
+<div class="card">
+<table id="tbl">
+<thead>
+<tr>
+<th>Zone</th>
+<th>Zone Length (mm)</th>
+<th>Required Zone Total Resistance (Ω)</th>
+<th>Final Pitch (mm)</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+
+<br>
+
+<button class="btn orange" onclick="addRow()">+ Add Zone</button>
+<button class="btn green" onclick="calculate()">CALCULATE ALL PITCHES</button>
+<button class="btn blue" onclick="exportCSV()">EXPORT EXCEL</button>
+<button class="btn red" onclick="location.reload()">CLEAR ALL</button>
+
+<div id="info" style="margin-top:10px;font-weight:bold"></div>
+</div>
+</div>
+
+<div class="footer">
+Devoloped by Industrial Engineering Version 1.0
+</div>
+
+<div id="modal">
+<div class="modalbox">
+<h3>Admin Login</h3>
+<input type="password" id="pwd" placeholder="Password">
+<br><br>
+<button class="btn green" onclick="login()">Login</button>
+<button class="btn red" onclick="hideAdmin()">Close</button>
+</div>
+</div>
+
+<script>
+const tbody=document.querySelector("#tbl tbody");
+
+function addRow(){
+ let r=tbody.insertRow();
+ r.innerHTML=`
+ <td>${tbody.rows.length}</td>
+ <td><input type="number" step="any"></td>
+ <td><input type="number" step="any"></td>
+ <td><input class="result-box" readonly></td>`;
+}
+
+for(let i=0;i<10;i++) addRow();
+
+function calculate(){
+
+ const yarn=parseFloat(document.getElementById("yarn").value);
+ const act=parseFloat(document.getElementById("actual").value);
+ const wire=parseFloat(document.getElementById("wire").value);
+
+ if(isNaN(act)||isNaN(wire)){
+   alert("Please enter Actual 1 Meter Resistance and Heating Wire Diameter.");
+   return;
+ }
+
+ let active=0;
+
+ for(let i=0;i<tbody.rows.length;i++){
+
+   let row=tbody.rows[i];
+
+   let zl=row.cells[1].querySelector("input").value.trim();
+   let rr=row.cells[2].querySelector("input").value.trim();
+
+   if(zl==="" && rr===""){
+      row.cells[3].querySelector("input").value="";
+      continue;
+   }
+
+   if(zl==="" || rr===""){
+      alert("Zone "+(i+1)+" is incomplete.");
+      return;
+   }
+
+   active++;
+
+   let hw=(parseFloat(rr)/act)*1000;
+
+   let pitch=(Math.PI*(yarn+wire))/Math.sqrt(Math.pow(hw/parseFloat(zl),2)-1);
+
+   let finalPitch=(pitch*1.05).toFixed(4);
+
+   row.cells[3].querySelector("input").value=finalPitch;
+ }
+
+ document.getElementById("info").innerHTML=
+ "Active Zones: "+active+" | Last Calculated: "+new Date().toLocaleString();
+}
+
+function exportCSV(){
+ let csv="Zone,Zone Length (mm),Required Resistance (Ω),Actual Resistance (Ω/m),Heating Wire Diameter (mm),Final Pitch (mm)\n";
+
+ let act=document.getElementById("actual").value;
+ let wire=document.getElementById("wire").value;
+
+ [...tbody.rows].forEach(r=>{
+   let z=r.cells[0].innerText;
+   let zl=r.cells[1].querySelector("input").value;
+   let rr=r.cells[2].querySelector("input").value;
+   let fp=r.cells[3].querySelector("input").value;
+
+   if(zl||rr||fp){
+      csv += `${z},${zl},${rr},${act},${wire},${fp}\n`;
+   }
+ });
+
+ let a=document.createElement("a");
+ a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+ a.download="Thermopads_Coiling_Pitch_Calculator.csv";
+ a.click();
+}
+
+function showAdmin(){document.getElementById('modal').style.display='block';}
+function hideAdmin(){document.getElementById('modal').style.display='none';}
+
+function login(){
+ if(document.getElementById('pwd').value==='tpl123'){
+   let v=prompt('Enter Yarn / Bundle Diameter',document.getElementById('yarn').value);
+   if(v) document.getElementById('yarn').value=v;
+   hideAdmin();
+ }else{
+   alert('Invalid Password');
+ }
+}
+</script>
+
+</body>
+</html>
